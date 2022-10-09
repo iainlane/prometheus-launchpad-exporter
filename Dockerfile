@@ -2,6 +2,8 @@
 
 FROM python:3.10-alpine3.16
 
+RUN apk add gcc musl-dev libffi-dev
+
 WORKDIR /app
 
 COPY requirements.txt requirements.txt
