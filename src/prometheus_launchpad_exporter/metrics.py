@@ -17,7 +17,6 @@
 
 import asyncio
 import threading
-import time
 
 from aioprometheus import Counter
 from aioprometheus.service import Service
