@@ -68,20 +68,12 @@ async def main():
     log = structlog.get_logger()
     log.debug("Running in debug mode")
 
-    m = Metrics(log, args.series)
-    await m.start()
-
-    try:
-        await asyncio.Event().wait()
-    finally:
-        await m.stop()
-
-    app = Metrics(log)
-
     loop = asyncio.get_event_loop()
 
+    app = Metrics(log, args.series)
+
     for signal_enum in [SIGINT, SIGTERM]:
-        loop.add_signal_handler(signal_enum, asyncio.ensure_future(app.stop))
+        loop.add_signal_handler(signal_enum, app.stop)
 
     await app.start()
 

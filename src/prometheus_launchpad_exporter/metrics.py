@@ -85,13 +85,11 @@ class Metrics:
             self._service.start(addr="0.0.0.0", port=8000),
         )
 
-    # XXX: this doesn't work properly yet,
-    # (1) KeyboardInterrupt seems to stop the event loop directly and thus this
-    # is never executed
-    # (2) we would still need to add a lot of event checking inside of
-    # fetch_metrics() to interrupt it
-    async def stop(self):
+    # XXX: this could work better
+    # we still need to add a lot of event checking inside of fetch_metrics() to
+    # interrupt it. It works now but the interrupt doesn't happen until the sync
+    # calls finish
+    def stop(self):
         self.log.info("Stopping prometheus-launchpad-exporter")
         self._stop_thread_event.set()
-        await self._service.stop()
         self._metrics_refresh_timer = None
