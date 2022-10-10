@@ -2,12 +2,15 @@
 
 FROM python:3.10-alpine3.16
 
-RUN apk add gcc musl-dev libffi-dev
+# hadolint ignore=DL3018
+RUN apk add --no-cache gcc musl-dev libffi-dev
+
+RUN rm -rf /var/cache/apk/*
 
 WORKDIR /app
 
 COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY . .
 
