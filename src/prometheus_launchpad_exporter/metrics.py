@@ -18,7 +18,7 @@
 import asyncio
 import threading
 
-from aioprometheus import Counter
+from aioprometheus import Gauge
 from aioprometheus.service import Service
 
 from .ubuntu import UbuntuMetrics
@@ -32,11 +32,11 @@ class Metrics:
         self._series = series
 
         self._service = Service()
-        self.packageset_number_packages = Counter(
+        self.packageset_number_packages = Gauge(
             "packageset_number_packages",
             "Number of packages in a packageset",
         )
-        self.queue_number_packages = Counter(
+        self.queue_number_packages = Gauge(
             "queue_number_packages",
             "Number of packages in a queue",
         )
