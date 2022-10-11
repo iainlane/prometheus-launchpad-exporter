@@ -46,7 +46,14 @@ class LP:
         return [
             self.get_series(series.name)
             for series in self.lp.distributions["ubuntu"].series
-            if series.status in ("Current", "Supported", "Active Development")
+            if series.status
+            in (
+                "Active Development",
+                "Current",
+                "Future",
+                "Pre-release Freeze",
+                "Supported",
+            )
         ]
 
     @cachetools.cachedmethod(lambda self: self.series_cache)
