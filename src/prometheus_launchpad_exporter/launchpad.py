@@ -28,11 +28,13 @@ class LP:
         self.series_cache = cachetools.LRUCache(maxsize=50)
         self.packageset_cache = cachetools.TTLCache(maxsize=50, ttl=10 * 60)
         self.packageset_sources_cache = cachetools.TTLCache(maxsize=50, ttl=60 * 60)
+        # 1 minute expiry on the queues, they move fast
+        self.queue_cache = cachetools.TTLCache(maxsize=50, ttl=1 * 60)
 
         self.cache_dir = cache_dir
         if cache_dir is None:
             cache_dir = self._default_cache_dir()
-        self.lp = self.login()
+        self.login()
 
     def _default_cache_dir(self):
         import xdg.BaseDirectory
@@ -58,6 +60,7 @@ class LP:
 
     @cachetools.cachedmethod(lambda self: self.series_cache)
     def get_series(self, name):
+        self.log.debug("getting series from LP", name=name)
         return self.lp.distributions["ubuntu"].getSeries(name_or_version=name)
 
     @cachetools.cachedmethod(
@@ -65,17 +68,29 @@ class LP:
         key=lambda _, series: series.name,
     )
     def get_packagesets(self, series):
+        self.log.debug("getting packagesets from LP", series=series.name)
         return self.lp.packagesets.getBySeries(distroseries=series)
 
     @cachetools.cachedmethod(
         lambda self: self.packageset_sources_cache,
-        key=lambda _, packageset: (packageset.distroseries.name, packageset.name),
+        key=lambda _, packageset: f"{packageset.distroseries.name}/{packageset.name}",
     )
     def get_packageset_sources(self, packageset):
+        self.log.debug("getting packageset sources from LP", packageset=packageset.name)
         return packageset.getSourcesIncluded()
 
+    @cachetools.cachedmethod(
+        lambda self: self.queue_cache,
+        key=lambda _, series, status, pocket: f"{series.name}/{status}/{pocket}",
+    )
+    def get_queue(self, series, status, pocket):
+        self.log.debug(
+            "getting queues from LP", series=series.name, status=status, pocket=pocket
+        )
+        return series.getPackageUploads(status=status, pocket=pocket)
+
     def login(self):
-        return Launchpad.login_anonymously(
+        self.lp = Launchpad.login_anonymously(
             "prometheus-launchpad-exporter",
             "production",
             self.cache_dir,

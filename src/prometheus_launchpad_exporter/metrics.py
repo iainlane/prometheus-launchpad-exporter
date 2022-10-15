@@ -31,6 +31,8 @@ class Metrics:
 
         self._series = series
 
+        self._metrics = UbuntuMetrics(log, series)
+
         self._service = Service()
         self.packageset_number_packages = Gauge(
             "packageset_number_packages",
@@ -44,20 +46,16 @@ class Metrics:
         self._stop_thread_event = threading.Event()
 
     def fetch_metrics(self):
-        log = self.log
+        self._metrics.populate_packageset_maps()
+        self._metrics.fetch_queues()
 
-        m = UbuntuMetrics(log, self._series)
-
-        m.populate_packageset_maps()
-        m.fetch_queues()
-
-        for series, packagesets in m.series_packageset_source_map.items():
+        for series, packagesets in self._metrics.series_packageset_source_map.items():
             for packageset, sources in packagesets.items():
                 self.packageset_number_packages.set(
                     {"series": series, "packageset": packageset}, len(sources)
                 )
 
-        for series, queues in m.series_queue_count_map.items():
+        for series, queues in self._metrics.series_queue_count_map.items():
             for pocket, statuses in queues.items():
                 for status, n_packages in statuses.items():
                     self.queue_number_packages.set(

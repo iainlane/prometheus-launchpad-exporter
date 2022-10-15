@@ -71,7 +71,7 @@ class UbuntuMetrics:
                     "Proposed",
                     "Backports",
                 ):
-                    queue = series.getPackageUploads(status=status, pocket=pocket)
+                    queue = self._lp.get_queue(series, status, pocket)
                     self.log.debug(
                         "got queue",
                         series=series.name,
