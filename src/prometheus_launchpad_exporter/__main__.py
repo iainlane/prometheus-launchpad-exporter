@@ -20,12 +20,30 @@
 import argparse
 import asyncio
 import logging
+import signal
 import sys
+import threading
+import traceback
+from functools import partial
 from signal import SIGINT, SIGTERM
 
 import structlog
 
 from .metrics import Metrics
+
+
+def debug(log, _, __):
+    """Log the stack traces of all threads"""
+    for th in threading.enumerate():
+        log.warning(
+            "SIGUSR1 received, dumping stack trace",
+            thread=th.name,
+            traceback="".join(traceback.format_stack(sys._current_frames()[th.ident])),
+        )
+
+
+def listen(log):
+    signal.signal(signal.SIGUSR1, partial(debug, log))  # Register handler
 
 
 async def main():
@@ -66,6 +84,7 @@ async def main():
     )
 
     log = structlog.get_logger()
+    listen(log)
     log.debug("Running in debug mode")
 
     loop = asyncio.get_event_loop()
