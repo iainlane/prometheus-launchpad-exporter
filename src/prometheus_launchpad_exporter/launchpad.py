@@ -58,6 +58,7 @@ class LP:
 
     @cachetools.cachedmethod(lambda self: self.series_cache)
     def get_series(self, name):
+        self.log.debug("getting series from LP", name=name)
         return self.lp.distributions["ubuntu"].getSeries(name_or_version=name)
 
     @cachetools.cachedmethod(
@@ -65,6 +66,7 @@ class LP:
         key=lambda _, series: series.name,
     )
     def get_packagesets(self, series):
+        self.log.debug("getting packagesets from LP", series=series.name)
         return self.lp.packagesets.getBySeries(distroseries=series)
 
     @cachetools.cachedmethod(
@@ -72,6 +74,7 @@ class LP:
         key=lambda _, packageset: (packageset.distroseries.name, packageset.name),
     )
     def get_packageset_sources(self, packageset):
+        self.log.debug("getting packageset sources from LP", packageset=packageset.name)
         return packageset.getSourcesIncluded()
 
     def login(self):
