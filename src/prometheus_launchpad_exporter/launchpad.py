@@ -34,7 +34,7 @@ class LP:
         self.cache_dir = cache_dir
         if cache_dir is None:
             cache_dir = self._default_cache_dir()
-        self.lp = self.login()
+        self.login()
 
     def _default_cache_dir(self):
         import xdg.BaseDirectory
@@ -90,7 +90,7 @@ class LP:
         return series.getPackageUploads(status=status, pocket=pocket)
 
     def login(self):
-        return Launchpad.login_anonymously(
+        self.lp = Launchpad.login_anonymously(
             "prometheus-launchpad-exporter",
             "production",
             self.cache_dir,
