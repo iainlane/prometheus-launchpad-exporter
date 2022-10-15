@@ -73,7 +73,7 @@ class LP:
 
     @cachetools.cachedmethod(
         lambda self: self.packageset_sources_cache,
-        key=lambda _, packageset: (packageset.distroseries.name, packageset.name),
+        key=lambda _, packageset: f"{packageset.distroseries.name}/{packageset.name}",
     )
     def get_packageset_sources(self, packageset):
         self.log.debug("getting packageset sources from LP", packageset=packageset.name)
