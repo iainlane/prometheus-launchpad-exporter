@@ -88,7 +88,7 @@ class Metrics:
 
     def refresh_metrics_timer(self):
         while not self._stop_metrics_refresh_timer.is_set():
-            if self._stop_metrics_refresh_timer.wait(10):
+            if self._stop_metrics_refresh_timer.wait(60):
                 return
             self.log.info("Refreshing metrics")
 
@@ -100,7 +100,7 @@ class Metrics:
 
     def fetch_build_statuses(self, series):
         while not self._stop_fetch_build_statuses_timer.is_set():
-            if self._stop_fetch_build_statuses_timer.wait(5):
+            if self._stop_fetch_build_statuses_timer.wait(60 * 5):
                 return
             self._metrics.fetch_build_statuses(series)
 
