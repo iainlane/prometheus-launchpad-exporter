@@ -17,6 +17,8 @@
 
 import asyncio
 import threading
+from collections import defaultdict
+from functools import partial
 
 from aioprometheus import Gauge
 from aioprometheus.service import Service
@@ -25,11 +27,12 @@ from .ubuntu import UbuntuMetrics
 
 
 class Metrics:
-    def __init__(self, log, series):
+    def __init__(self, log, series, packagesets):
         self.log = log
         log.info("Starting prometheus-launchpad-exporter")
 
         self._series = series
+        self._packagesets = packagesets
 
         self._metrics = UbuntuMetrics(log, series)
 
@@ -38,23 +41,43 @@ class Metrics:
             "packageset_number_packages",
             "Number of packages in a packageset",
         )
+        self.packageset_failed_builds = Gauge(
+            "packageset_failed_builds",
+            "Number of failed builds in a packageset",
+        )
         self.queue_number_packages = Gauge(
             "queue_number_packages",
             "Number of packages in a queue",
         )
-        self._metrics_refresh_timer = None  # type: asyncio.Handle
-        self._stop_thread_event = threading.Event()
+        self._stop_metrics_refresh_timer = threading.Event()
+        self._stop_fetch_build_statuses_timer = threading.Event()
 
-    def fetch_metrics(self):
-        self._metrics.populate_packageset_maps()
-        self._metrics.fetch_queues()
-
+    def update_packageset_count_metrics(self):
+        failed_builds = defaultdict(lambda: defaultdict(int))
         for series, packagesets in self._metrics.series_packageset_source_map.items():
             for packageset, sources in packagesets.items():
                 self.packageset_number_packages.set(
                     {"series": series, "packageset": packageset}, len(sources)
                 )
+                for source in sources:
+                    fbs = source.get_failed_builds()
+                    for pocket in fbs:
+                        for arch in fbs[pocket]:
+                            failed_builds[pocket][arch] += 1
 
+        for pocket, arches in failed_builds.items():
+            for arch, count in arches.items():
+                self.packageset_failed_builds.set(
+                    {
+                        "series": series,
+                        "packageset": packageset,
+                        "pocket": pocket,
+                        "arch": arch,
+                    },
+                    count,
+                )
+
+    def update_queue_metrics(self):
         for series, queues in self._metrics.series_queue_count_map.items():
             for pocket, statuses in queues.items():
                 for status, n_packages in statuses.items():
@@ -64,21 +87,51 @@ class Metrics:
                     )
 
     def refresh_metrics_timer(self):
-        while not self._stop_thread_event.is_set():
-            if self._stop_thread_event.wait(60):
+        while not self._stop_metrics_refresh_timer.is_set():
+            if self._stop_metrics_refresh_timer.wait(10):
                 return
             self.log.info("Refreshing metrics")
-            self.fetch_metrics()
+
+            self._metrics.populate_packageset_maps(self._packagesets)
+            self._metrics.fetch_queues()
+
+            self.update_packageset_count_metrics()
+            self.update_queue_metrics()
+
+    def fetch_build_statuses(self, series):
+        while not self._stop_fetch_build_statuses_timer.is_set():
+            if self._stop_fetch_build_statuses_timer.wait(5):
+                return
+            self._metrics.fetch_build_statuses(series)
 
     async def start(self):
         # make sure the metrics are fetched once before we start
-        self.fetch_metrics()
+        self._metrics.populate_packageset_maps(self._packagesets)
+        self._metrics.fetch_queues()
 
-        self._metrics_refresh_timer = asyncio.to_thread(self.refresh_metrics_timer)
+        threads = []
+        for series in self._metrics.series_to_consider():
+            t = threading.Thread(
+                target=partial(self._metrics.fetch_build_statuses, series)
+            )
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
+        self.update_packageset_count_metrics()
+        self.update_queue_metrics()
+
+        metrics_refresh_timer = asyncio.to_thread(self.refresh_metrics_timer)
 
         # refresh every minute
         await asyncio.gather(
-            self._metrics_refresh_timer,
+            *[
+                asyncio.to_thread(partial(self.fetch_build_statuses, series))
+                for series in self._metrics.series_to_consider()
+            ],
+            metrics_refresh_timer,
             self._service.start(addr="0.0.0.0", port=8000),
         )
 
@@ -88,5 +141,5 @@ class Metrics:
     # calls finish
     def stop(self):
         self.log.info("Stopping prometheus-launchpad-exporter")
-        self._stop_thread_event.set()
-        self._metrics_refresh_timer = None
+        self._stop_metrics_refresh_timer.set()
+        self._stop_fetch_build_statuses_timer.set()
