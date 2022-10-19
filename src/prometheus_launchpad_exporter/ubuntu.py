@@ -208,7 +208,7 @@ class UbuntuMetrics:
             self.log.info("fetching packagesets", series=series_name)
 
             if packagesets == []:
-                packagesets = [
+                packageset_names = [
                     packageset.name
                     for packageset in self._lp.get_all_packagesets_for_series(
                         series_name
@@ -218,7 +218,7 @@ class UbuntuMetrics:
             self.log.info(
                 "got packagesets",
                 series=series_name,
-                packagesets=" ".join(packagesets),
+                packagesets=" ".join(packageset_names),
             )
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -230,7 +230,7 @@ class UbuntuMetrics:
                         series_packageset_source_map,
                         lock,
                     ),
-                    packagesets,
+                    packageset_names,
                 ):
                     pass
 
