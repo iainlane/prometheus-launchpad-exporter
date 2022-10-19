@@ -58,7 +58,15 @@ async def main():
         action="append",
         help="Series to export metrics for",
     )
+    parser.add_argument(
+        "--packageset",
+        action="append",
+        help="Packageset to export metrics for",
+    )
     args = parser.parse_args()
+
+    if args.packageset is None:
+        args.packageset = []
 
     logging.basicConfig(
         format="%(message)s",
@@ -89,7 +97,7 @@ async def main():
 
     loop = asyncio.get_event_loop()
 
-    app = Metrics(log, args.series)
+    app = Metrics(log, args.series, args.packageset)
 
     for signal_enum in [SIGINT, SIGTERM]:
         loop.add_signal_handler(signal_enum, app.stop)
