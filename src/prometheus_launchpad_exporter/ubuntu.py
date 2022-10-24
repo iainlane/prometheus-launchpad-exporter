@@ -19,6 +19,8 @@ import concurrent.futures
 import threading
 from collections import defaultdict
 
+import lazr.restfulclient.errors
+
 from .launchpad import LP
 
 
@@ -84,7 +86,11 @@ class SourcePackage:
 
         self._last_time_checked[pocket] = latest_spph.date_created
 
-        build_records = latest_spph.getBuilds()
+        try:
+            build_records = latest_spph.getBuilds()
+        except lazr.restfulclient.errors.Unauthorized:
+            log.warning("Unauthorized to fetch builds")
+            return
 
         # if this package was built in this series (wasn't copied forward), then
         # there will be build records
