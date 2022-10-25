@@ -254,8 +254,10 @@ class UbuntuMetrics:
                     ),
                     packageset_names,
                 ):
-                    series_source_map[series_name] = source_map
-                    series_packageset_source_map[series_name] = packageset_source_map
+                    series_source_map[series_name].update(source_map)
+                    series_packageset_source_map[series_name].update(
+                        packageset_source_map
+                    )
 
         self._series_source_map = series_source_map
         self._series_packageset_source_map = series_packageset_source_map
