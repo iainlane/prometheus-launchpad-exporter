@@ -142,14 +142,3 @@ class LP:
             self.cache_dir,
             version="devel",
         )
-
-    @classmethod
-    def get_lp(cls, local, log):
-        """If this TLS has a launchpad instance, return it, otherwise create a
-        new one"""
-        if not hasattr(local, "lp"):
-            log.debug("creating new LP instance")
-            local.lp = cls(log)
-        else:
-            log.debug("reusing existing LP instance")
-        return local.lp
