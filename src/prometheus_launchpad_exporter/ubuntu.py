@@ -28,8 +28,6 @@ class SourcePackage:
     """An upload of a source package to a series"""
 
     def __init__(self, log, name, series_name):
-        self._local = threading.local()
-
         self.log = log.bind(source=name, series=series_name)
 
         self._name = name
@@ -37,10 +35,6 @@ class SourcePackage:
 
         self._last_time_checked = {}
         self._build_status = defaultdict(lambda: defaultdict(str))
-
-    @property
-    def _lp(self):
-        return LP.get_lp(self._local, self.log)
 
     @property
     def name(self):
@@ -62,11 +56,12 @@ class SourcePackage:
             for pocket, builds in self._build_status.items()
         }
 
-    def _fetch_latest_build_status_pocket(self, pocket):
+    def _fetch_latest_build_status_pocket(self, pocket, local):
         log = self.log.bind(pocket=pocket)
-        series = self._lp.get_series(self._series_name)
+        lp = local.lp
+        series = lp.get_series(self._series_name)
         try:
-            latest_spph = self._lp.get_published_sources(
+            latest_spph = lp.get_published_sources(
                 pocket,
                 self._name,
                 series,
@@ -149,9 +144,9 @@ class SourcePackage:
                     state=state,
                 )
 
-    def fetch_latest_build_status(self):
+    def fetch_latest_build_status(self, local):
         for pocket in ("Backports", "Proposed", "Release", "Security", "Updates"):
-            self._fetch_latest_build_status_pocket(pocket)
+            self._fetch_latest_build_status_pocket(pocket, local)
 
         return self._build_status
 
@@ -174,14 +169,8 @@ class UbuntuMetrics:
         self._series_packageset_source_map = defaultdict(lambda: defaultdict(set))
         self._series_source_map = defaultdict(dict)
 
-        self._all_lps = []
-
-    @property
-    def _lp(self):
-        return LP.get_lp(self._local, self.log)
-
-    def series_to_consider(self):
-        return self._series if self._series else self._lp.all_current_series_names
+    def series_to_consider(self, lp):
+        return self._series if self._series else lp.all_current_series_names
 
     def fetch_packageset_for_series(
         self,
@@ -190,11 +179,15 @@ class UbuntuMetrics:
         series_source_map,
         series_packageset_source_map,
         lock,
+        local,
     ):
+        lp = local.lp
+
         log = self.log.bind(series=series_name, packageset=packageset_name)
-        series = self._lp.get_series(series_name)
-        packageset = self._lp.get_packagesets_by_name(series, packageset_name)
-        sources = self._lp.get_packageset_sources(packageset)
+
+        series = lp.get_series(series_name)
+        packageset = lp.get_packagesets_by_name(series, packageset_name)
+        sources = lp.get_packageset_sources(packageset)
 
         log.info("processing packageset", n_sources=len(sources))
         for source in sources:
@@ -205,20 +198,35 @@ class UbuntuMetrics:
                     series_source_map[series_name][source] = sp
                 series_packageset_source_map[series_name][packageset_name].add(sp)
 
+    def make_lp(self, local):
+        try:
+            lp = local.lp
+            self.log.debug("reusing existing LP connection")
+            return lp
+        except AttributeError:
+            self.log.debug("making new LP")
+            local.lp = LP(self.log)
+            return local.lp
+
     def populate_packageset_maps(self, packagesets):
         lock = threading.Lock()
 
         series_source_map = defaultdict(dict)
         series_packageset_source_map = defaultdict(lambda: defaultdict(set))
-        for series_name in self.series_to_consider():
+
+        local = threading.local()
+
+        lp = self.make_lp(local)
+
+        for series_name in self.series_to_consider(lp):
             self.log.info("fetching packagesets", series=series_name)
+
+            packageset_names = packagesets
 
             if packagesets == []:
                 packageset_names = [
                     packageset.name
-                    for packageset in self._lp.get_all_packagesets_for_series(
-                        series_name
-                    )
+                    for packageset in lp.get_all_packagesets_for_series(series_name)
                 ]
 
             self.log.info(
@@ -227,7 +235,9 @@ class UbuntuMetrics:
                 packagesets=" ".join(packageset_names),
             )
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=10, initializer=self.make_lp, initargs=(local,)
+            ) as executor:
                 for _ in executor.map(
                     lambda packageset_name: self.fetch_packageset_for_series(
                         packageset_name,
@@ -235,6 +245,7 @@ class UbuntuMetrics:
                         series_source_map,
                         series_packageset_source_map,
                         lock,
+                        local,
                     ),
                     packageset_names,
                 ):
@@ -254,10 +265,12 @@ class UbuntuMetrics:
         return self._series_source_map
 
     def fetch_queues(self):
+        local = threading.local()
+        lp = self.make_lp(local)
         # series -> queue -> n_packages
         ret = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
-        for series_name in self.series_to_consider():
-            series = self._lp.get_series(series_name)
+        for series_name in self.series_to_consider(lp):
+            series = lp.get_series(series_name)
             self.log.info("fetching queues", series=series_name)
             for status in ("New", "Unapproved"):
                 for pocket in (
@@ -267,7 +280,7 @@ class UbuntuMetrics:
                     "Proposed",
                     "Backports",
                 ):
-                    queue = self._lp.get_queue(series, status, pocket)
+                    queue = lp.get_queue(series, status, pocket)
                     self.log.debug(
                         "got queue",
                         series=series_name,
@@ -288,11 +301,13 @@ class UbuntuMetrics:
             for source in sources
         ]
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            for result in executor.map(
-                lambda s: s.fetch_latest_build_status(), all_sources
-            ):
-                pass
+        local = threading.local()
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=10, initializer=self.make_lp, initargs=(local,)
+        ) as executor:
+            for source in all_sources:
+                executor.submit(source.fetch_latest_build_status, local)
 
         self.log.info("done fetching build statuses", series=series_name)
 

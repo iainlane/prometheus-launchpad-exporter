@@ -23,6 +23,7 @@ from functools import partial
 from aioprometheus import Gauge
 from aioprometheus.service import Service
 
+from .launchpad import LP
 from .ubuntu import UbuntuMetrics
 
 
@@ -33,6 +34,8 @@ class Metrics:
 
         self._series = series
         self._packagesets = packagesets
+
+        self._lp = LP(log)
 
         self._metrics = UbuntuMetrics(log, series)
 
@@ -110,7 +113,7 @@ class Metrics:
         self._metrics.fetch_queues()
 
         threads = []
-        for series in self._metrics.series_to_consider():
+        for series in self._metrics.series_to_consider(self._lp):
             t = threading.Thread(
                 target=partial(self._metrics.fetch_build_statuses, series)
             )
@@ -129,7 +132,7 @@ class Metrics:
         await asyncio.gather(
             *[
                 asyncio.to_thread(partial(self.fetch_build_statuses, series))
-                for series in self._metrics.series_to_consider()
+                for series in self._metrics.series_to_consider(self._lp)
             ],
             metrics_refresh_timer,
             self._service.start(addr="0.0.0.0", port=8000),
