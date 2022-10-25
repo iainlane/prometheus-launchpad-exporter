@@ -176,8 +176,6 @@ class UbuntuMetrics:
         self,
         packageset_name,
         series_name,
-        series_source_map,
-        series_packageset_source_map,
         lock,
         local,
     ):
@@ -189,14 +187,23 @@ class UbuntuMetrics:
         packageset = lp.get_packagesets_by_name(series, packageset_name)
         sources = lp.get_packageset_sources(packageset)
 
+        source_map = {}
+        packageset_source_map = defaultdict(set)
+
         log.info("processing packageset", n_sources=len(sources))
         for source in sources:
             with lock:
-                sp = self._series_source_map[series_name].get(source)
+                sp = self._series_source_map[series_name].get(
+                    source, source_map.get(source)
+                )
                 if sp is None:
-                    sp = SourcePackage(self.log, source, series_name)
-                    series_source_map[series_name][source] = sp
-                series_packageset_source_map[series_name][packageset_name].add(sp)
+                    log = log.bind(source=source)
+                    log.debug("creating source package")
+                    sp = SourcePackage(log, source, series_name)
+                source_map[source] = sp
+                packageset_source_map[packageset_name].add(sp)
+
+        return (source_map, packageset_source_map)
 
     def make_lp(self, local):
         try:
@@ -238,18 +245,17 @@ class UbuntuMetrics:
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=10, initializer=self.make_lp, initargs=(local,)
             ) as executor:
-                for _ in executor.map(
+                for (source_map, packageset_source_map) in executor.map(
                     lambda packageset_name: self.fetch_packageset_for_series(
                         packageset_name,
                         series_name,
-                        series_source_map,
-                        series_packageset_source_map,
                         lock,
                         local,
                     ),
                     packageset_names,
                 ):
-                    pass
+                    series_source_map[series_name] = source_map
+                    series_packageset_source_map[series_name] = packageset_source_map
 
         self._series_source_map = series_source_map
         self._series_packageset_source_map = series_packageset_source_map
