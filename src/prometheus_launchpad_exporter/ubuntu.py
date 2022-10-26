@@ -28,7 +28,7 @@ class SourcePackage:
     """An upload of a source package to a series"""
 
     def __init__(self, log, name, series_name):
-        self.log = log.bind(source=name, series=series_name)
+        self.log = log.bind(source_name=name, series=series_name)
 
         self._name = name
         self._series_name = series_name
