@@ -71,6 +71,9 @@ async def main():
     )
     args = parser.parse_args()
 
+    if args.log_directory and not os.path.exists(args.log_directory):
+        os.makedirs(args.log_directory)
+
     if args.packageset is None:
         args.packageset = []
 
