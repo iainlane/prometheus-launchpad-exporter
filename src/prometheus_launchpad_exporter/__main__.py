@@ -20,6 +20,8 @@
 import argparse
 import asyncio
 import logging
+import logging.handlers
+import os
 import signal
 import sys
 import threading
@@ -63,6 +65,10 @@ async def main():
         action="append",
         help="Packageset to export metrics for",
     )
+    parser.add_argument(
+        "--log-directory",
+        help="Directory to write logs to",
+    )
     args = parser.parse_args()
 
     if args.packageset is None:
@@ -70,9 +76,25 @@ async def main():
 
     logging.basicConfig(
         format="%(message)s",
-        stream=sys.stdout,
         level=logging.DEBUG,
-    )
+        handlers=[
+            logging.StreamHandler(sys.stderr),
+        ]
+        + (
+            [
+                logging.handlers.RotatingFileHandler(
+                    os.path.join(
+                        args.log_directory, "prometheus-launchpad-exporter.log"
+                    ),
+                    maxBytes=10000000,
+                    backupCount=5,
+                    mode="w",
+                )
+            ]
+            if args.log_directory
+            else []
+        ),
+    ),
 
     structlog.configure(
         processors=[
