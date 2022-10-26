@@ -133,6 +133,7 @@ class LP:
             distro_series=series,
             created_since_date=created_since_date,
             order_by_date=True,
+            status="Published",
         )
 
     def login(self):
