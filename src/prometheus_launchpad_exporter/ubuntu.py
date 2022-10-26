@@ -210,7 +210,7 @@ class UbuntuMetrics:
                     source, source_map.get(source)
                 )
                 if sp is None:
-                    log = log.bind(source=source)
+                    log = log.bind(source_name=source)
                     log.debug("creating source package")
                     sp = SourcePackage(log, source, series_name)
                 source_map[source] = sp
