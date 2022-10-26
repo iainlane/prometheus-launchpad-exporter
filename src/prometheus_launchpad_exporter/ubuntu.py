@@ -156,12 +156,13 @@ class SourcePackage:
 
 
 class UbuntuMetrics:
-    def __init__(self, log, series):
+    def __init__(self, log, series, packagesets):
         self._local = threading.local()
 
         self.log = log
 
         self._series = series
+        self._packagesets = packagesets
 
         self._series_queue_count_map = defaultdict(
             lambda: defaultdict(lambda: defaultdict(int))
@@ -171,6 +172,18 @@ class UbuntuMetrics:
 
     def series_to_consider(self, lp):
         return self._series if self._series else lp.all_current_series_names
+
+    def packagesets_to_consider_for_series(self, lp, series_name):
+        return (
+            self._packagesets
+            if self._packagesets
+            else [
+                packageset.name
+                for packageset in lp.get_all_packagesets_for_series(series_name)
+            ]
+        )
+
+        return self._packagesets
 
     def fetch_packageset_for_series(
         self,
@@ -215,7 +228,7 @@ class UbuntuMetrics:
             local.lp = LP(self.log)
             return local.lp
 
-    def populate_packageset_maps(self, packagesets):
+    def populate_packageset_maps(self):
         lock = threading.Lock()
 
         series_source_map = defaultdict(dict)
@@ -228,13 +241,7 @@ class UbuntuMetrics:
         for series_name in self.series_to_consider(lp):
             self.log.info("fetching packagesets", series=series_name)
 
-            packageset_names = packagesets
-
-            if packagesets == []:
-                packageset_names = [
-                    packageset.name
-                    for packageset in lp.get_all_packagesets_for_series(series_name)
-                ]
+            packageset_names = self.packagesets_to_consider_for_series(lp, series_name)
 
             self.log.info(
                 "got packagesets",

@@ -26,6 +26,7 @@ class LP:
         self.log = log
 
         self.series_cache = cachetools.LRUCache(maxsize=512)
+        self.series_arch_cache = cachetools.LRUCache(maxsize=512)
         self.packageset_cache = cachetools.TTLCache(maxsize=512, ttl=10 * 60)
         self.packageset_sources_cache = cachetools.TTLCache(maxsize=512, ttl=60 * 60)
         # 1 minute expiry on the queues, they move fast
@@ -75,6 +76,12 @@ class LP:
         self.log.debug("getting series from LP", name=name)
         ubuntu = self.get_distribution("ubuntu")
         return ubuntu.getSeries(name_or_version=name)
+
+    @cachetools.cachedmethod(lambda self: self.series_arch_cache)
+    def get_series_architectures(self, series_name):
+        self.log.debug("getting series architectures from LP", series=series_name)
+        series = self.get_series(series_name)
+        return [arch.architecture_tag for arch in series.architectures]
 
     @cachetools.cachedmethod(
         lambda self: self.packageset_cache,

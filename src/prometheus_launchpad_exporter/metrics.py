@@ -17,7 +17,6 @@
 
 import asyncio
 import threading
-from collections import defaultdict
 from functools import partial
 
 from aioprometheus import Gauge
@@ -37,7 +36,7 @@ class Metrics:
 
         self._lp = LP(log)
 
-        self._metrics = UbuntuMetrics(log, series)
+        self._metrics = UbuntuMetrics(log, series, packagesets)
 
         self._service = Service()
         self.packageset_number_packages = Gauge(
@@ -56,7 +55,26 @@ class Metrics:
         self._stop_fetch_build_statuses_timer = threading.Event()
 
     def update_packageset_count_metrics(self):
-        failed_builds = defaultdict(lambda: defaultdict(int))
+        # initialize the metrics to 0
+        failed_builds = {}
+        for series in self._metrics.series_to_consider(self._lp):
+            arches = self._lp.get_series_architectures(series)
+            failed_builds[series] = {}
+            for packageset in self._metrics.packagesets_to_consider_for_series(
+                self._lp, series
+            ):
+                for arch in arches:
+                    for pocket in (
+                        "Backports",
+                        "Proposed",
+                        "Release",
+                        "Security",
+                        "Updates",
+                    ):
+                        failed_builds[series].setdefault(packageset, {}).setdefault(
+                            pocket, {}
+                        )[arch] = 0
+
         for series, packagesets in self._metrics.series_packageset_source_map.items():
             for packageset, sources in packagesets.items():
                 self.packageset_number_packages.set(
@@ -66,19 +84,21 @@ class Metrics:
                     fbs = source.get_failed_builds()
                     for pocket in fbs:
                         for arch in fbs[pocket]:
-                            failed_builds[pocket][arch] += 1
+                            failed_builds[series][packageset][pocket][arch] += 1
 
-        for pocket, arches in failed_builds.items():
-            for arch, count in arches.items():
-                self.packageset_failed_builds.set(
-                    {
-                        "series": series,
-                        "packageset": packageset,
-                        "pocket": pocket,
-                        "arch": arch,
-                    },
-                    count,
-                )
+        for series, packagesets in failed_builds.items():
+            for packageset, pockets in packagesets.items():
+                for pocket, arches in pockets.items():
+                    for arch, count in arches.items():
+                        self.packageset_failed_builds.set(
+                            {
+                                "series": series,
+                                "packageset": packageset,
+                                "pocket": pocket,
+                                "arch": arch,
+                            },
+                            count,
+                        )
 
     def update_queue_metrics(self):
         for series, queues in self._metrics.series_queue_count_map.items():
@@ -95,7 +115,7 @@ class Metrics:
                 return
             self.log.info("Refreshing metrics")
 
-            self._metrics.populate_packageset_maps(self._packagesets)
+            self._metrics.populate_packageset_maps()
             self._metrics.fetch_queues()
 
             self.update_packageset_count_metrics()
@@ -109,7 +129,7 @@ class Metrics:
 
     async def start(self):
         # make sure the metrics are fetched once before we start
-        self._metrics.populate_packageset_maps(self._packagesets)
+        self._metrics.populate_packageset_maps()
         self._metrics.fetch_queues()
 
         threads = []
