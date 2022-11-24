@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.10-alpine3.16
+FROM python:3.11-alpine3.16
 
 # hadolint ignore=DL3018
 RUN apk add --no-cache gcc musl-dev libffi-dev
