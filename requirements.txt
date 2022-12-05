@@ -18,7 +18,7 @@ launchpadlib==1.10.18
 lazr.restfulclient==0.14.5
 lazr.uri==1.0.6
 more-itertools==9.0.0
-multidict==6.0.2
+multidict==6.0.3
 oauthlib==3.2.2
 orjson==3.8.2
 pycodestyle==2.10.0
