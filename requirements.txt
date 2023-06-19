@@ -23,7 +23,7 @@ oauthlib==3.2.2
 orjson==3.9.1
 pycodestyle==2.10.0
 pycparser==2.21
-pyparsing==3.0.9
+pyparsing==3.1.0
 pyxdg==0.28
 quantile-python==1.1
 SecretStorage==3.3.3
