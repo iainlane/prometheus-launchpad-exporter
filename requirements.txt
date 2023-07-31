@@ -21,7 +21,7 @@ more-itertools==10.0.0
 multidict==6.0.4
 oauthlib==3.2.2
 orjson==3.9.2
-pycodestyle==2.10.0
+pycodestyle==2.11.0
 pycparser==2.21
 pyparsing==3.1.1
 pyxdg==0.28
