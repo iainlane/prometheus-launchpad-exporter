@@ -20,7 +20,7 @@ lazr.uri==1.0.6
 more-itertools==10.1.0
 multidict==6.0.4
 oauthlib==3.2.2
-orjson==3.9.8
+orjson==3.9.9
 pycodestyle==2.11.1
 pycparser==2.21
 pyparsing==3.1.1
