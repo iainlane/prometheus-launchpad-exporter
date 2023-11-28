@@ -6,7 +6,7 @@ attrs==23.1.0
 cachetools==5.3.2
 cffi==1.16.0
 charset-normalizer==3.3.2
-cryptography==41.0.5
+cryptography==41.0.7
 distro==1.8.0
 frozenlist==1.4.0
 httplib2==0.22.0
