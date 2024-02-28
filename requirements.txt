@@ -13,7 +13,7 @@ httplib2==0.22.0
 idna==3.6
 jaraco.classes==3.3.0
 jeepney==0.8.0
-keyring==24.3.0
+keyring==24.3.1
 launchpadlib==1.11.0
 lazr.restfulclient==0.14.6
 lazr.uri==1.0.6
